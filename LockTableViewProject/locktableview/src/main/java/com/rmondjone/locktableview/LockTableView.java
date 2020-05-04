@@ -1,15 +1,11 @@
 package com.rmondjone.locktableview;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
-import android.text.method.NumberKeyListener;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -18,25 +14,21 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 
 import com.rmondjone.xrecyclerview.ProgressStyle;
 import com.rmondjone.xrecyclerview.XRecyclerView;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 说明 可锁定首行和首列的表格视图
  * 作者 郭翰林
+ * 优化 短毛猫
+ * 修复 短毛猫
  * 创建时间 2017/3/29.
  */
 
@@ -131,6 +123,8 @@ public class LockTableView {
      * 单元格内边距
      */
     private int mCellPadding;
+
+    private List<View> mHeadViews = new ArrayList<>();
     /**
      * 要改变的列集合
      */
@@ -306,17 +300,32 @@ public class LockTableView {
                         }
                         buffer.append("[" + measureTextWidth(textView, rowDatas.get(j)) + "]");
                     }
+
                 }
-//                Log.e("第"+i+"行列最大宽度",buffer.toString());
+                //Log.d("第"+i+"行列最大宽度",buffer.toString());
             }
+
             //如果用户指定某列宽度则按照用户指定宽度算
             if (mChangeColumns.size() > 0) {
                 for (Integer key : mChangeColumns.keySet()) {
                     changeColumnWidth(key, mChangeColumns.get(key));
+                    //Log.d("changeColumnWidth", mChangeColumns.get(key) + "");
                 }
             }
-//            Log.e("每列最大宽度dp:",mColumnMaxWidths.toString());
+            //Log.d("每列最大宽度dp:",mColumnMaxWidths.toString());
 
+
+
+            for (int i = 0;i < mHeadViews.size();i++)
+            {
+                ViewGroup.LayoutParams params = mHeadViews.get(i).getLayoutParams();
+                if (isLockFristColumn) {
+                    params.width = DisplayUtil.dip2px(mContext, mColumnMaxWidths.get(i + 1));
+                }else {
+                    params.width = DisplayUtil.dip2px(mContext, mColumnMaxWidths.get(i));
+                }
+                mHeadViews.get(i).setLayoutParams(params);
+            }
 
             //初始化每行最大高度
             for (int i = 0; i < mTableDatas.size(); i++) {
@@ -331,6 +340,7 @@ public class LockTableView {
                         LinearLayout.LayoutParams.WRAP_CONTENT);
                 textViewParams.setMargins(mCellPadding, mCellPadding, mCellPadding, mCellPadding);//android:layout_margin="15dp"
                 textView.setLayoutParams(textViewParams);
+
                 int maxHeight = measureTextHeight(textView, rowDatas.get(0));
                 mRowMaxHeights.add(maxHeight);
                 for (int j = 0; j < rowDatas.size(); j++) {
@@ -392,6 +402,7 @@ public class LockTableView {
         } else {
             Toast.makeText(mContext, "表格数据为空！", Toast.LENGTH_SHORT).show();
         }
+
     }
 
     /**
@@ -484,7 +495,7 @@ public class LockTableView {
                 mLockHeadView.setVisibility(View.GONE);
                 mUnLockHeadView.setVisibility(View.VISIBLE);
             }
-            creatHeadView();
+            createHeadView();
         } else {
             mLockHeadView.setVisibility(View.GONE);
             mUnLockHeadView.setVisibility(View.GONE);
@@ -494,7 +505,7 @@ public class LockTableView {
     /**
      * 创建头部视图
      */
-    private void creatHeadView() {
+    private void createHeadView() {
         if (isLockFristColumn) {
             mColumnTitleView.setTextColor(ContextCompat.getColor(mContext, mTableHeadTextColor));
             mColumnTitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, mTextViewSize);
@@ -680,6 +691,10 @@ public class LockTableView {
      * @param isFristRow 是否是第一行
      */
     private void createScollview(HorizontalScrollView scrollView, List<String> datas, boolean isFristRow) {
+        if (mHeadViews == null || (isFristRow && mHeadViews.size() != 0))
+        {
+            mHeadViews = new ArrayList<>();
+        }
         //设置LinearLayout
         LinearLayout linearLayout = new LinearLayout(mContext);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -689,8 +704,10 @@ public class LockTableView {
         linearLayout.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < datas.size(); i++) {
             //构造单元格
+
             TextView textView = new TextView(mContext);
             if (isFristRow) {
+                mHeadViews.add(textView);
                 textView.setTextColor(ContextCompat.getColor(mContext, mTableHeadTextColor));
             } else {
                 textView.setTextColor(ContextCompat.getColor(mContext, mTableContentTextColor));
